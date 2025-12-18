@@ -78,9 +78,9 @@
                         <i class="bi bi-download"></i> Export
                     </button>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('api_export', chain=current_chain, address=address_info.address, type='transactions') }}">Transactions (CSV)</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('api_export', chain=current_chain, address=address_info.address, type='tokens') }}">Token Transfers (CSV)</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('api_export', chain=current_chain, address=address_info.address, type='balances') }}">Token Balances (CSV)</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('api_core.api_export', chain=current_chain, address=address_info.address, type='transactions') }}">Transactions (CSV)</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('api_core.api_export', chain=current_chain, address=address_info.address, type='tokens') }}">Token Transfers (CSV)</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('api_core.api_export', chain=current_chain, address=address_info.address, type='balances') }}">Token Balances (CSV)</a></li>
                     </ul>
                 </div>
             </div>
@@ -253,7 +253,7 @@
                                         <span class="text-danger">{{ token.transfers_out }}</span>
                                     </td>
                                     <td>
-                                        <a href="{{ url_for('address_detail', chain=current_chain, address=token.contract_address) }}" class="small">
+                                        <a href="{{ url_for('main.address_detail', chain=current_chain, address=token.contract_address) }}" class="small">
                                             {{ token.contract_address|short_address }}
                                         </a>
                                     </td>
@@ -471,12 +471,12 @@
                                         <td>
                                             {% if tx.direction == 'out' %}
                                             <span class="badge bg-danger">OUT</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.to) }}" class="small">
                                                 {{ tx.to|short_address }}
                                             </a>
                                             {% else %}
                                             <span class="badge bg-success">IN</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.from) }}" class="small">
                                                 {{ tx.from|short_address }}
                                             </a>
                                             {% endif %}
@@ -519,10 +519,10 @@
                                         <td>
                                             {% if tx.direction == 'out' %}
                                             <span class="badge bg-danger">OUT</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
                                             {% else %}
                                             <span class="badge bg-success">IN</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
                                             {% endif %}
                                         </td>
                                         <td>{{ tx.value|format_value }} {{ tx.symbol }}</td>
@@ -562,10 +562,10 @@
                                         <td>
                                             {% if tx.direction == 'out' %}
                                             <span class="badge bg-danger">OUT</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
                                             {% else %}
                                             <span class="badge bg-success">IN</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
                                             {% endif %}
                                         </td>
                                         <td>{{ tx.value|format_value }}</td>
@@ -606,10 +606,10 @@
                                         <td>
                                             {% if tx.direction == 'out' %}
                                             <span class="badge bg-danger">OUT</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
                                             {% else %}
                                             <span class="badge bg-success">IN</span>
-                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
+                                            <a href="{{ url_for('main.address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
                                             {% endif %}
                                         </td>
                                         <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
@@ -672,7 +672,7 @@
                 <i class="bi bi-search"></i> Search
             </div>
             <div class="card-body">
-                <form action="{{ url_for('search') }}" method="GET">
+                <form action="{{ url_for('main.search') }}" method="GET">
                     <div class="mb-3">
                         <select class="form-select form-select-sm" name="chain">
                             {% for chain in chains %}
@@ -743,7 +743,7 @@
             <ul class="list-group list-group-flush">
                 {% for related in related_addresses[:8] %}
                 <li class="list-group-item">
-                    <a href="{{ url_for('address_detail', chain=current_chain, address=related.address) }}" class="text-decoration-none">
+                    <a href="{{ url_for('main.address_detail', chain=current_chain, address=related.address) }}" class="text-decoration-none">
                         {{ related.short_address }}
                     </a>
                     <div class="small">
@@ -769,7 +769,7 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="{{ url_for('static', filename='js/graph.js') }}"></script>
 <script>
-    const graphUrl = "{{ url_for('api_graph', chain=current_chain, address=address_info.address) }}";
+    const graphUrl = "{{ url_for('api_core.api_graph', chain=current_chain, address=address_info.address) }}";
     const currentChain = "{{ current_chain }}";
     const currentAddress = "{{ address_info.address }}";
 
