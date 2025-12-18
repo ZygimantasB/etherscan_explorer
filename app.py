@@ -1112,6 +1112,54 @@ def api_wallet_profile(chain, address):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/token-transfers/<chain>/<address>')
+def api_token_transfers(chain, address):
+    """Get ERC-20 token transfers for an address."""
+    if not is_valid_address(address):
+        return jsonify({'error': 'Invalid address'}), 400
+    if not get_chain_config(chain):
+        return jsonify({'error': 'Invalid chain'}), 400
+
+    try:
+        client = BlockchainClient(chain)
+        token_transfers = client.get_token_transfers(address, limit=100)
+
+        # Format transfers for display
+        formatted_transfers = []
+        for tx in token_transfers[:50]:  # Limit to 50 for modal
+            formatted_transfers.append({
+                'hash': tx.get('hash', ''),
+                'from': tx.get('from', ''),
+                'to': tx.get('to', ''),
+                'value': float(tx.get('value', 0)) / (10 ** int(tx.get('tokenDecimal', 18))),
+                'token_name': tx.get('tokenName', 'Unknown'),
+                'token_symbol': tx.get('tokenSymbol', '???'),
+                'contract_address': tx.get('contractAddress', ''),
+                'timestamp': tx.get('timeStamp', ''),
+                'direction': 'out' if tx.get('from', '').lower() == address.lower() else 'in'
+            })
+
+        # Summary stats
+        tokens_sent = {}
+        tokens_received = {}
+        for tx in formatted_transfers:
+            symbol = tx['token_symbol']
+            if tx['direction'] == 'out':
+                tokens_sent[symbol] = tokens_sent.get(symbol, 0) + tx['value']
+            else:
+                tokens_received[symbol] = tokens_received.get(symbol, 0) + tx['value']
+
+        return jsonify({
+            'transfers': formatted_transfers,
+            'total_transfers': len(token_transfers),
+            'tokens_sent': [{'symbol': k, 'amount': v} for k, v in sorted(tokens_sent.items(), key=lambda x: -x[1])],
+            'tokens_received': [{'symbol': k, 'amount': v} for k, v in sorted(tokens_received.items(), key=lambda x: -x[1])],
+            'unique_tokens': len(set(tx['token_symbol'] for tx in formatted_transfers))
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/advanced')
 def advanced_page():
     """Advanced analytics page."""
