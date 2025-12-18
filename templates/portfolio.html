@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Multi-Chain Portfolio - Crypto Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-pie-chart"></i> Multi-Chain Portfolio Tracker</h2>
+
+        <!-- Address Input -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-wallet2"></i> Enter Addresses
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Wallet Addresses (one per line or comma-separated)</label>
+                    <textarea class="form-control" id="addressInput" rows="3" placeholder="0x... &#10;0x..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="loadPortfolio()">
+                    <i class="bi bi-search"></i> Load Portfolio
+                </button>
+                <button class="btn btn-outline-secondary ms-2" onclick="loadFromWatchlist()">
+                    <i class="bi bi-star"></i> Load from Watchlist
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="portfolio-loading" class="text-center py-5 d-none">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Loading portfolio across all chains...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="portfolio-results" class="d-none">
+            <!-- Total Value -->
+            <div class="card mb-4 bg-primary text-white">
+                <div class="card-body text-center">
+                    <h6>Total Portfolio Value</h6>
+                    <h1 id="total-value">$0.00</h1>
+                </div>
+            </div>
+
+            <!-- Chain Breakdown -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">Ethereum</h6>
+                            <h4 id="eth-value">$0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">Polygon</h6>
+                            <h4 id="polygon-value">$0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">Arbitrum</h6>
+                            <h4 id="arbitrum-value">$0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">BSC</h6>
+                            <h4 id="bsc-value">$0.00</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Token Holdings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-coin"></i> Token Holdings
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Token</th>
+                                    <th>Balance</th>
+                                    <th>Value (USD)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="token-table">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NFT Holdings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-image"></i> NFT Holdings
+                </div>
+                <div class="card-body">
+                    <div class="row" id="nft-grid">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function loadFromWatchlist() {
+        const saved = localStorage.getItem('crypto_watchlist');
+        if (saved) {
+            const watchlist = JSON.parse(saved);
+            document.getElementById('addressInput').value = watchlist.join('\n');
+        } else {
+            alert('No addresses in watchlist');
+        }
+    }
+
+    function loadPortfolio() {
+        const input = document.getElementById('addressInput').value;
+        const addresses = input.split(/[\n,]/).map(a => a.trim()).filter(a => a.startsWith('0x'));
+
+        if (addresses.length === 0) {
+            alert('Please enter at least one valid address');
+            return;
+        }
+
+        document.getElementById('portfolio-loading').classList.remove('d-none');
+        document.getElementById('portfolio-results').classList.add('d-none');
+
+        fetch('/api/portfolio?addresses=' + addresses.join(','))
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('portfolio-loading').classList.add('d-none');
+                document.getElementById('portfolio-results').classList.remove('d-none');
+
+                // Update totals
+                document.getElementById('total-value').textContent = '$' + data.total_usd.toFixed(2);
+
+                // Update chain values
+                if (data.chains.ethereum) {
+                    document.getElementById('eth-value').textContent = '$' + (data.chains.ethereum.total_usd || 0).toFixed(2);
+                }
+                if (data.chains.polygon) {
+                    document.getElementById('polygon-value').textContent = '$' + (data.chains.polygon.total_usd || 0).toFixed(2);
+                }
+                if (data.chains.arbitrum) {
+                    document.getElementById('arbitrum-value').textContent = '$' + (data.chains.arbitrum.total_usd || 0).toFixed(2);
+                }
+                if (data.chains.bsc) {
+                    document.getElementById('bsc-value').textContent = '$' + (data.chains.bsc.total_usd || 0).toFixed(2);
+                }
+
+                // Update token table
+                const tokenTable = document.getElementById('token-table');
+                tokenTable.innerHTML = '';
+                const tokens = Object.values(data.tokens).sort((a, b) => (b.value_usd || 0) - (a.value_usd || 0));
+                tokens.forEach(token => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${token.symbol}</strong><br><small class="text-muted">${token.name}</small></td>
+                        <td>${token.balance.toFixed(4)}</td>
+                        <td class="text-success">$${(token.value_usd || 0).toFixed(2)}</td>
+                    `;
+                    tokenTable.appendChild(row);
+                });
+
+                // Update NFT grid
+                const nftGrid = document.getElementById('nft-grid');
+                nftGrid.innerHTML = '';
+                data.nfts.slice(0, 24).forEach(nft => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-2 col-4 mb-3';
+                    col.innerHTML = `
+                        <div class="card h-100">
+                            <div class="card-body p-2 text-center">
+                                <i class="bi bi-image display-6 text-muted"></i>
+                                <div class="small mt-1">
+                                    <strong>${nft.token_symbol}</strong>
+                                    <br><span class="text-muted">#${nft.token_id.substring(0, 8)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    nftGrid.appendChild(col);
+                });
+
+                if (data.nfts.length === 0) {
+                    nftGrid.innerHTML = '<div class="col-12 text-center text-muted">No NFTs found</div>';
+                }
+            })
+            .catch(e => {
+                document.getElementById('portfolio-loading').classList.add('d-none');
+                alert('Error loading portfolio: ' + e.message);
+            });
+    }
+</script>
+{% endblock %}

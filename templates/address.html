@@ -11,15 +11,27 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
                     <span class="badge bg-primary">{{ address_info.chain_name }}</span>
+                    {% if address_info.label %}
+                    <span class="badge bg-info">{{ address_info.label.name }}</span>
+                    <span class="badge bg-secondary">{{ address_info.label.category }}</span>
+                    {% endif %}
                     {% if address_info.is_contract %}
-                    <span class="badge bg-warning">Contract</span>
+                    <span class="badge bg-warning text-dark">Contract</span>
+                    {% if address_info.contract_info and address_info.contract_info.is_verified %}
+                    <span class="badge bg-success">Verified</span>
+                    {% endif %}
                     {% else %}
                     <span class="badge bg-success">Wallet</span>
                     {% endif %}
                 </div>
-                <a href="{{ address_info.explorer_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-box-arrow-up-right"></i> View on Explorer
-                </a>
+                <div>
+                    <button class="btn btn-sm btn-outline-warning me-1" onclick="toggleWatchlist('{{ address_info.address }}')" id="watchlist-btn">
+                        <i class="bi bi-star" id="watchlist-icon"></i>
+                    </button>
+                    <a href="{{ address_info.explorer_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-box-arrow-up-right"></i> View on Explorer
+                    </a>
+                </div>
             </div>
             <div class="card-body">
                 <h5 class="card-title text-break">
@@ -29,22 +41,358 @@
                         <i class="bi bi-clipboard"></i>
                     </button>
                 </h5>
-                <div class="row mt-4">
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <small class="text-muted">Balance</small>
-                            <h4>{{ address_info.balance.balance|format_value }} {{ address_info.balance.symbol }}</h4>
+
+                <!-- Risk Score -->
+                {% if address_info.risk_score and address_info.risk_score.score > 0 %}
+                <div class="alert {% if address_info.risk_score.level == 'critical' or address_info.risk_score.level == 'high' %}alert-danger{% elif address_info.risk_score.level == 'medium' %}alert-warning{% else %}alert-info{% endif %} mt-3">
+                    <strong><i class="bi bi-shield-exclamation"></i> Risk Score: {{ address_info.risk_score.score }}/100 ({{ address_info.risk_score.level|upper }})</strong>
+                    {% if address_info.risk_score.factors %}
+                    <ul class="mb-0 mt-2">
+                        {% for factor in address_info.risk_score.factors %}
+                        <li>{{ factor }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Contract Info -->
+                {% if address_info.contract_info and address_info.contract_info.is_verified %}
+                <div class="alert alert-info mt-3 mb-0">
+                    <strong><i class="bi bi-file-code"></i> {{ address_info.contract_info.contract_name }}</strong>
+                    <span class="ms-2 text-muted">{{ address_info.contract_info.compiler_version }}</span>
+                    {% if address_info.contract_info.proxy %}
+                    <span class="badge bg-warning text-dark ms-2">Proxy</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Statistics Overview -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-bar-chart"></i> Overview</span>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('api_export', chain=current_chain, address=address_info.address, type='transactions') }}">Transactions (CSV)</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('api_export', chain=current_chain, address=address_info.address, type='tokens') }}">Token Transfers (CSV)</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('api_export', chain=current_chain, address=address_info.address, type='balances') }}">Token Balances (CSV)</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Portfolio Value -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="bg-primary text-white rounded p-3 text-center">
+                            <small>Total Portfolio Value</small>
+                            <h3 class="mb-0">${{ "%.2f"|format(address_info.total_portfolio_usd or 0) }}</h3>
+                            <small class="opacity-75">
+                                {{ address_info.balance.balance|format_value }} {{ address_info.balance.symbol }}
+                                (${{ "%.2f"|format(address_info.balance_usd or 0) }})
+                                + Tokens (${{ "%.2f"|format(address_info.total_token_usd or 0) }})
+                            </small>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <small class="text-muted">Transactions</small>
-                            <h4>{{ address_info.tx_count }}</h4>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4 col-6">
+                        <div class="stat-card text-center">
+                            <small class="text-muted">{{ address_info.balance.symbol }} Balance</small>
+                            <h5 class="mb-0">{{ address_info.balance.balance|format_value }}</h5>
+                            <small class="text-success">${{ "%.2f"|format(address_info.balance_usd or 0) }}</small>
                         </div>
+                    </div>
+                    <div class="col-md-4 col-6">
+                        <div class="stat-card text-center">
+                            <small class="text-muted">Tokens</small>
+                            <h5 class="mb-0">{{ address_info.token_balances|length }}</h5>
+                            <small class="text-success">${{ "%.2f"|format(address_info.total_token_usd or 0) }}</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-6">
+                        <div class="stat-card text-center">
+                            <small class="text-muted">NFTs</small>
+                            <h5 class="mb-0">{{ address_info.nft_holdings|length }}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center">
+                            <small class="text-muted">Total TXs</small>
+                            <h5 class="mb-0">{{ address_info.stats.total_transactions }}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center">
+                            <small class="text-muted">Outgoing</small>
+                            <h5 class="mb-0 text-danger">{{ address_info.stats.outgoing_txs }}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center">
+                            <small class="text-muted">Incoming</small>
+                            <h5 class="mb-0 text-success">{{ address_info.stats.incoming_txs }}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center">
+                            <small class="text-muted">Unique Addrs</small>
+                            <h5 class="mb-0">{{ address_info.stats.unique_addresses_count }}</h5>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Value Stats -->
+                <div class="row mt-3 g-3">
+                    <div class="col-md-4">
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span class="text-muted">Total Sent:</span>
+                            <strong class="text-danger">{{ address_info.stats.total_value_sent|format_value }} {{ address_info.balance.symbol }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span class="text-muted">Total Received:</span>
+                            <strong class="text-success">{{ address_info.stats.total_value_received|format_value }} {{ address_info.balance.symbol }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            <span class="text-muted">Gas Spent:</span>
+                            <strong>{{ address_info.stats.total_gas_spent|format_value }} {{ address_info.balance.symbol }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                {% if address_info.stats.first_tx_timestamp %}
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <small class="text-muted">First TX: {{ address_info.stats.first_tx_timestamp|timestamp_to_date }}</small>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">Last TX: {{ address_info.stats.last_tx_timestamp|timestamp_to_date }}</small>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Token Holdings -->
+        {% if address_info.token_balances %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-coin"></i> Token Holdings ({{ address_info.token_balances|length }}) - ${{ "%.2f"|format(address_info.total_token_usd or 0) }}</span>
+                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#allTokens">
+                    Show All
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    {% for token in address_info.token_balances[:6] %}
+                    <div class="col-md-4 col-6 mb-2">
+                        <div class="d-flex align-items-center p-2 bg-light rounded">
+                            <div class="flex-grow-1">
+                                <strong>{{ token.token_symbol }}</strong>
+                                <div class="small text-muted">{{ token.balance|format_value }}</div>
+                                {% if token.value_usd and token.value_usd > 0 %}
+                                <div class="small text-success">${{ "%.2f"|format(token.value_usd) }}</div>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">
+                                <span class="text-success">+{{ token.transfers_in }}</span>/
+                                <span class="text-danger">-{{ token.transfers_out }}</span>
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="collapse" id="allTokens">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Token</th>
+                                    <th>Balance</th>
+                                    <th>Value (USD)</th>
+                                    <th>Price</th>
+                                    <th>In/Out</th>
+                                    <th>Contract</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for token in address_info.token_balances %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <strong>{{ token.token_symbol }}</strong>
+                                        <br><small class="text-muted">{{ token.token_name|truncate(20) }}</small>
+                                    </td>
+                                    <td>{{ token.balance|format_value }}</td>
+                                    <td>
+                                        {% if token.value_usd and token.value_usd > 0 %}
+                                        <span class="text-success">${{ "%.2f"|format(token.value_usd) }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if token.price_usd and token.price_usd > 0 %}
+                                        ${{ "%.4f"|format(token.price_usd) }}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="text-success">{{ token.transfers_in }}</span>/
+                                        <span class="text-danger">{{ token.transfers_out }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('address_detail', chain=current_chain, address=token.contract_address) }}" class="small">
+                                            {{ token.contract_address|short_address }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
+
+        <!-- NFT Holdings -->
+        {% if address_info.nft_holdings %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-image"></i> NFT Holdings ({{ address_info.nft_holdings|length }})
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for nft in address_info.nft_holdings[:12] %}
+                    <div class="col-md-3 col-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body p-2 text-center">
+                                <i class="bi bi-image display-6 text-muted"></i>
+                                <div class="small mt-1">
+                                    <strong>{{ nft.token_symbol }}</strong>
+                                    <br><span class="text-muted">#{{ nft.token_id|truncate(8) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- DeFi Positions -->
+        {% if address_info.defi_summary and address_info.defi_summary.protocol_count > 0 %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-bank"></i> DeFi Positions ({{ address_info.defi_summary.protocol_count }} protocols)
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col">
+                        <span class="badge bg-primary me-2">Protocols: {{ address_info.defi_summary.protocols|join(', ') }}</span>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    {% if address_info.defi_summary.has_lending %}
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center bg-light p-2 rounded">
+                            <i class="bi bi-cash-coin text-primary"></i>
+                            <div class="small text-muted">Lending</div>
+                            <strong>{{ address_info.defi_summary.lending_positions }} positions</strong>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if address_info.defi_summary.has_staking %}
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center bg-light p-2 rounded">
+                            <i class="bi bi-lock text-success"></i>
+                            <div class="small text-muted">Staking</div>
+                            <strong>{{ address_info.defi_summary.staking_positions }} positions</strong>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if address_info.defi_summary.has_liquidity %}
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center bg-light p-2 rounded">
+                            <i class="bi bi-droplet text-info"></i>
+                            <div class="small text-muted">Liquidity</div>
+                            <strong>{{ address_info.defi_summary.lp_positions }} positions</strong>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if address_info.defi_summary.has_yield %}
+                    <div class="col-md-3 col-6">
+                        <div class="stat-card text-center bg-light p-2 rounded">
+                            <i class="bi bi-graph-up-arrow text-warning"></i>
+                            <div class="small text-muted">Yield</div>
+                            <strong>{{ address_info.defi_summary.yield_positions }} positions</strong>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Detailed positions -->
+                {% if address_info.defi_positions.lending %}
+                <div class="mt-3">
+                    <h6><i class="bi bi-cash-coin"></i> Lending Positions</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Protocol</th><th>Token</th><th>Underlying</th><th>Balance</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for pos in address_info.defi_positions.lending %}
+                                <tr>
+                                    <td><span class="badge bg-primary">{{ pos.protocol }}</span></td>
+                                    <td>{{ pos.token }}</td>
+                                    <td>{{ pos.underlying }}</td>
+                                    <td>{{ pos.balance|format_value }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if address_info.defi_positions.staking %}
+                <div class="mt-3">
+                    <h6><i class="bi bi-lock"></i> Staking Positions</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Protocol</th><th>Token</th><th>Balance</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for pos in address_info.defi_positions.staking %}
+                                <tr>
+                                    <td><span class="badge bg-success">{{ pos.protocol }}</span></td>
+                                    <td>{{ pos.token }}</td>
+                                    <td>{{ pos.balance|format_value }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Link Analysis Graph -->
         <div class="card mb-4">
@@ -54,180 +402,231 @@
             <div class="card-body p-0">
                 <div id="graph-container"></div>
                 <div id="graph-loading" class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
+                    <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-2 text-muted">Building relationship graph...</p>
                 </div>
             </div>
-            <div class="card-footer">
-                <small class="text-muted">
-                    <i class="bi bi-info-circle"></i>
-                    Click on a node to explore that address. Hover for details.
-                </small>
-            </div>
         </div>
 
-        <!-- Token Balances -->
-        {% if address_info.token_balances %}
+        <!-- Transactions Tabs -->
         <div class="card mb-4">
             <div class="card-header">
-                <i class="bi bi-coin"></i> Token Balances ({{ address_info.token_balances|length }})
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#txs-tab">
+                            Transactions ({{ address_info.transactions|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#internal-tab">
+                            Internal ({{ address_info.internal_transactions|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tokens-tab">
+                            Token TXs ({{ address_info.token_transfers|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#nfts-tab">
+                            NFT TXs ({{ address_info.nft_transfers|length }})
+                        </button>
+                    </li>
+                </ul>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Token</th>
-                                <th>Balance</th>
-                                <th>Contract</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for token in address_info.token_balances[:20] %}
-                            <tr>
-                                <td>
-                                    <strong>{{ token.token_symbol }}</strong>
-                                    <br><small class="text-muted">{{ token.token_name }}</small>
-                                </td>
-                                <td>{{ token.balance|format_value }}</td>
-                                <td>
-                                    <a href="{{ url_for('address_detail', chain=current_chain, address=token.contract_address) }}"
-                                       class="text-decoration-none">
-                                        {{ token.contract_address|short_address }}
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="tab-content">
+                    <!-- Normal Transactions -->
+                    <div class="tab-pane fade show active" id="txs-tab">
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Hash</th>
+                                        <th>Method</th>
+                                        <th>From/To</th>
+                                        <th>Value</th>
+                                        <th>Gas Fee</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in address_info.transactions %}
+                                    <tr class="{% if tx.is_error %}table-danger{% endif %}">
+                                        <td>
+                                            <a href="{{ address_info.explorer_url.replace('/address/', '/tx/').replace(address_info.address, tx.hash) }}" target="_blank" class="small">
+                                                {{ tx.hash|short_address }}
+                                            </a>
+                                            {% if tx.is_error %}<span class="badge bg-danger">Failed</span>{% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tx.function_name %}
+                                            <span class="badge bg-secondary">{{ tx.function_name.split('(')[0]|truncate(15) }}</span>
+                                            {% elif tx.to == '' %}
+                                            <span class="badge bg-info">Create</span>
+                                            {% else %}
+                                            <span class="badge bg-light text-dark">Transfer</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tx.direction == 'out' %}
+                                            <span class="badge bg-danger">OUT</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">
+                                                {{ tx.to|short_address }}
+                                            </a>
+                                            {% else %}
+                                            <span class="badge bg-success">IN</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">
+                                                {{ tx.from|short_address }}
+                                            </a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ tx.value|format_value }} {{ tx.symbol }}</td>
+                                        <td>
+                                            <small>{{ tx.gas_fee|format_value }} {{ tx.symbol }}</small>
+                                            <br><span class="text-muted small">{{ tx.gas_price_gwei|round(2) }} Gwei</span>
+                                        </td>
+                                        <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Internal Transactions -->
+                    <div class="tab-pane fade" id="internal-tab">
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Parent Hash</th>
+                                        <th>Type</th>
+                                        <th>From/To</th>
+                                        <th>Value</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in address_info.internal_transactions %}
+                                    <tr class="{% if tx.is_error %}table-danger{% endif %}">
+                                        <td>
+                                            <a href="{{ address_info.explorer_url.replace('/address/', '/tx/').replace(address_info.address, tx.hash) }}" target="_blank" class="small">
+                                                {{ tx.hash|short_address }}
+                                            </a>
+                                        </td>
+                                        <td><span class="badge bg-secondary">{{ tx.type }}</span></td>
+                                        <td>
+                                            {% if tx.direction == 'out' %}
+                                            <span class="badge bg-danger">OUT</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
+                                            {% else %}
+                                            <span class="badge bg-success">IN</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ tx.value|format_value }} {{ tx.symbol }}</td>
+                                        <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Token Transfers -->
+                    <div class="tab-pane fade" id="tokens-tab">
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Hash</th>
+                                        <th>Token</th>
+                                        <th>From/To</th>
+                                        <th>Amount</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in address_info.token_transfers %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ address_info.explorer_url.replace('/address/', '/tx/').replace(address_info.address, tx.hash) }}" target="_blank" class="small">
+                                                {{ tx.hash|short_address }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <strong>{{ tx.token_symbol }}</strong>
+                                            <br><small class="text-muted">{{ tx.token_name|truncate(15) }}</small>
+                                        </td>
+                                        <td>
+                                            {% if tx.direction == 'out' %}
+                                            <span class="badge bg-danger">OUT</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
+                                            {% else %}
+                                            <span class="badge bg-success">IN</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ tx.value|format_value }}</td>
+                                        <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- NFT Transfers -->
+                    <div class="tab-pane fade" id="nfts-tab">
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-hover">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Hash</th>
+                                        <th>NFT</th>
+                                        <th>Token ID</th>
+                                        <th>From/To</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in address_info.nft_transfers %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ address_info.explorer_url.replace('/address/', '/tx/').replace(address_info.address, tx.hash) }}" target="_blank" class="small">
+                                                {{ tx.hash|short_address }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <strong>{{ tx.token_symbol }}</strong>
+                                            <br><small class="text-muted">{{ tx.token_name|truncate(15) }}</small>
+                                        </td>
+                                        <td>#{{ tx.token_id|truncate(10) }}</td>
+                                        <td>
+                                            {% if tx.direction == 'out' %}
+                                            <span class="badge bg-danger">OUT</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}" class="small">{{ tx.to|short_address }}</a>
+                                            {% else %}
+                                            <span class="badge bg-success">IN</span>
+                                            <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}" class="small">{{ tx.from|short_address }}</a>
+                                            {% endif %}
+                                        </td>
+                                        <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        {% endif %}
-
-        <!-- Recent Transactions -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="bi bi-arrow-left-right"></i> Recent Transactions
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Hash</th>
-                                <th>From</th>
-                                <th>To</th>
-                                <th>Value</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for tx in address_info.transactions[:15] %}
-                            <tr class="{% if tx.is_error %}table-danger{% endif %}">
-                                <td>
-                                    <a href="{{ address_info.explorer_url.replace('/address/', '/tx/').replace(address_info.address, tx.hash) }}"
-                                       target="_blank" class="text-decoration-none">
-                                        {{ tx.hash|short_address }}
-                                    </a>
-                                    {% if tx.method %}
-                                    <br><span class="badge bg-secondary">{{ tx.method }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if tx.from.lower() == address_info.address.lower() %}
-                                    <span class="badge bg-danger">OUT</span>
-                                    {% else %}
-                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}"
-                                       class="text-decoration-none">
-                                        {{ tx.from|short_address }}
-                                    </a>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if tx.to and tx.to.lower() == address_info.address.lower() %}
-                                    <span class="badge bg-success">IN</span>
-                                    {% elif tx.to %}
-                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}"
-                                       class="text-decoration-none">
-                                        {{ tx.to|short_address }}
-                                    </a>
-                                    {% else %}
-                                    <span class="badge bg-info">Contract Create</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ tx.value|format_value }} {{ tx.symbol }}</td>
-                                <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Token Transfers -->
-        {% if address_info.token_transfers %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <i class="bi bi-arrow-repeat"></i> Recent Token Transfers
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Token</th>
-                                <th>From</th>
-                                <th>To</th>
-                                <th>Amount</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for tx in address_info.token_transfers[:15] %}
-                            <tr>
-                                <td>
-                                    <strong>{{ tx.token_symbol }}</strong>
-                                    <br><small class="text-muted">{{ tx.token_name|truncate(20) }}</small>
-                                </td>
-                                <td>
-                                    {% if tx.from.lower() == address_info.address.lower() %}
-                                    <span class="badge bg-danger">OUT</span>
-                                    {% else %}
-                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}"
-                                       class="text-decoration-none">
-                                        {{ tx.from|short_address }}
-                                    </a>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if tx.to.lower() == address_info.address.lower() %}
-                                    <span class="badge bg-success">IN</span>
-                                    {% else %}
-                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}"
-                                       class="text-decoration-none">
-                                        {{ tx.to|short_address }}
-                                    </a>
-                                    {% endif %}
-                                </td>
-                                <td>{{ tx.value|format_value }}</td>
-                                <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        {% endif %}
     </div>
 
     <!-- Sidebar -->
     <div class="col-lg-4">
-        <!-- Search Again -->
+        <!-- Search -->
         <div class="card mb-4">
             <div class="card-header">
                 <i class="bi bi-search"></i> Search
@@ -235,7 +634,7 @@
             <div class="card-body">
                 <form action="{{ url_for('search') }}" method="GET">
                     <div class="mb-3">
-                        <select class="form-select" name="chain">
+                        <select class="form-select form-select-sm" name="chain">
                             {% for chain in chains %}
                             <option value="{{ chain.id }}" {% if chain.id == current_chain %}selected{% endif %}>
                                 {{ chain.name }}
@@ -243,7 +642,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="input-group">
+                    <div class="input-group input-group-sm">
                         <input type="text" class="form-control" name="address" placeholder="0x...">
                         <button class="btn btn-primary" type="submit">
                             <i class="bi bi-search"></i>
@@ -253,35 +652,70 @@
             </div>
         </div>
 
+        <!-- Gas Tracker -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-fuel-pump"></i> Gas Tracker
+            </div>
+            <div class="card-body" id="gas-tracker">
+                <div class="text-center">
+                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                    <small class="text-muted">Loading...</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Quick Info
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Chain</span>
+                    <strong>{{ address_info.chain_name }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Type</span>
+                    <strong>{% if address_info.is_contract %}Contract{% else %}EOA{% endif %}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ address_info.balance.symbol }} Price</span>
+                    <strong>${{ "%.2f"|format(address_info.native_price or 0) }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Token Types</span>
+                    <strong>{{ address_info.stats.unique_tokens_count }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Internal TXs</span>
+                    <strong>{{ address_info.stats.total_internal }}</strong>
+                </li>
+            </ul>
+        </div>
+
         <!-- Related Addresses -->
         {% if related_addresses %}
         <div class="card mb-4">
             <div class="card-header">
-                <i class="bi bi-people"></i> Related Addresses
+                <i class="bi bi-people"></i> Top Interactions
             </div>
             <ul class="list-group list-group-flush">
-                {% for related in related_addresses[:10] %}
+                {% for related in related_addresses[:8] %}
                 <li class="list-group-item">
-                    <a href="{{ url_for('address_detail', chain=current_chain, address=related.address) }}"
-                       class="text-decoration-none">
+                    <a href="{{ url_for('address_detail', chain=current_chain, address=related.address) }}" class="text-decoration-none">
                         {{ related.short_address }}
                     </a>
-                    <div class="small text-muted">
-                        {{ related.tx_count }} txs
+                    <div class="small">
+                        <span class="text-success">{{ related.directions.in }} in</span> /
+                        <span class="text-danger">{{ related.directions.out }} out</span>
                         {% if related.tokens %}
-                        | {{ related.tokens|length }} tokens
-                        {% endif %}
-                    </div>
-                    {% if related.tokens %}
-                    <div class="mt-1">
+                        <br>
                         {% for token in related.tokens[:3] %}
                         <span class="badge bg-light text-dark">{{ token }}</span>
                         {% endfor %}
-                        {% if related.tokens|length > 3 %}
-                        <span class="badge bg-light text-dark">+{{ related.tokens|length - 3 }}</span>
                         {% endif %}
                     </div>
-                    {% endif %}
                 </li>
                 {% endfor %}
             </ul>
@@ -295,19 +729,91 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="{{ url_for('static', filename='js/graph.js') }}"></script>
 <script>
-    // Initialize graph
     const graphUrl = "{{ url_for('api_graph', chain=current_chain, address=address_info.address) }}";
     const currentChain = "{{ current_chain }}";
+    const currentAddress = "{{ address_info.address }}";
 
     document.addEventListener('DOMContentLoaded', function() {
         loadGraph(graphUrl, currentChain);
+        checkWatchlistStatus();
+        loadGasTracker();
     });
 
     function copyAddress() {
         const address = document.getElementById('address').textContent;
         navigator.clipboard.writeText(address).then(function() {
-            alert('Address copied to clipboard!');
+            alert('Address copied!');
         });
+    }
+
+    // Watchlist functionality (localStorage)
+    function getWatchlist() {
+        const saved = localStorage.getItem('crypto_watchlist');
+        return saved ? JSON.parse(saved) : [];
+    }
+
+    function saveWatchlist(list) {
+        localStorage.setItem('crypto_watchlist', JSON.stringify(list));
+    }
+
+    function checkWatchlistStatus() {
+        const watchlist = getWatchlist();
+        const icon = document.getElementById('watchlist-icon');
+        if (watchlist.includes(currentAddress.toLowerCase())) {
+            icon.classList.remove('bi-star');
+            icon.classList.add('bi-star-fill');
+        }
+    }
+
+    function toggleWatchlist(address) {
+        let watchlist = getWatchlist();
+        const addr = address.toLowerCase();
+        const icon = document.getElementById('watchlist-icon');
+
+        if (watchlist.includes(addr)) {
+            watchlist = watchlist.filter(a => a !== addr);
+            icon.classList.remove('bi-star-fill');
+            icon.classList.add('bi-star');
+            alert('Removed from watchlist');
+        } else {
+            watchlist.push(addr);
+            icon.classList.remove('bi-star');
+            icon.classList.add('bi-star-fill');
+            alert('Added to watchlist');
+        }
+        saveWatchlist(watchlist);
+    }
+
+    // Gas Tracker
+    function loadGasTracker() {
+        const gasContainer = document.getElementById('gas-tracker');
+        if (!gasContainer) return;
+
+        fetch('/api/gas/' + currentChain)
+            .then(r => r.json())
+            .then(data => {
+                if (data.low) {
+                    gasContainer.innerHTML = `
+                        <div class="d-flex justify-content-between small">
+                            <span class="text-success">Low: ${data.low} Gwei</span>
+                            <span class="text-warning">Avg: ${data.average} Gwei</span>
+                            <span class="text-danger">High: ${data.high} Gwei</span>
+                        </div>
+                        <div class="text-muted small mt-1">Base Fee: ${data.base_fee.toFixed(2)} Gwei</div>
+                    `;
+                }
+            })
+            .catch(e => console.log('Gas tracker error:', e));
+    }
+
+    // Transaction type summary chart
+    function loadTxSummary() {
+        fetch('/api/tx-summary/' + currentChain + '/' + currentAddress)
+            .then(r => r.json())
+            .then(data => {
+                console.log('TX Summary:', data);
+            })
+            .catch(e => console.log('TX Summary error:', e));
     }
 </script>
 {% endblock %}

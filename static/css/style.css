@@ -125,6 +125,55 @@ main {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
+/* Graph controls */
+.graph-controls {
+    border-radius: 0;
+}
+
+.breadcrumbs {
+    font-size: 0.85rem;
+}
+
+.breadcrumbs .badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+.breadcrumbs .badge:hover {
+    opacity: 0.9;
+}
+
+/* Node expand animation */
+@keyframes pulse-expand {
+    0% {
+        stroke-dashoffset: 0;
+    }
+    100% {
+        stroke-dashoffset: 20;
+    }
+}
+
+.node-expanding circle {
+    animation: pulse-expand 0.5s linear infinite;
+}
+
+/* Graph node hover effect */
+.node:hover {
+    filter: brightness(1.1);
+}
+
+/* Graph info panel */
+.graph-info {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* List group items */
 .list-group-item {
     border-left: none;

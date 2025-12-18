@@ -3,11 +3,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Chain configurations with their respective API endpoints and keys
+# Etherscan V2 API base URL (supports all chains with chainid parameter)
+ETHERSCAN_V2_API = 'https://api.etherscan.io/v2/api'
+
+# Chain configurations with their respective chain IDs for V2 API
 CHAINS = {
     'ethereum': {
         'name': 'Ethereum',
-        'api_url': 'https://api.etherscan.io/api',
+        'chain_id': 1,
         'api_key': os.getenv('ETHERSCAN_API_KEY', ''),
         'explorer_url': 'https://etherscan.io',
         'symbol': 'ETH',
@@ -15,24 +18,24 @@ CHAINS = {
     },
     'bsc': {
         'name': 'BNB Smart Chain',
-        'api_url': 'https://api.bscscan.com/api',
-        'api_key': os.getenv('BSCSCAN_API_KEY', ''),
+        'chain_id': 56,
+        'api_key': os.getenv('ETHERSCAN_API_KEY', ''),  # V2 API uses same key for all chains
         'explorer_url': 'https://bscscan.com',
         'symbol': 'BNB',
         'decimals': 18
     },
     'polygon': {
         'name': 'Polygon',
-        'api_url': 'https://api.polygonscan.com/api',
-        'api_key': os.getenv('POLYGONSCAN_API_KEY', ''),
+        'chain_id': 137,
+        'api_key': os.getenv('ETHERSCAN_API_KEY', ''),  # V2 API uses same key for all chains
         'explorer_url': 'https://polygonscan.com',
-        'symbol': 'MATIC',
+        'symbol': 'POL',
         'decimals': 18
     },
     'arbitrum': {
         'name': 'Arbitrum One',
-        'api_url': 'https://api.arbiscan.io/api',
-        'api_key': os.getenv('ARBISCAN_API_KEY', ''),
+        'chain_id': 42161,
+        'api_key': os.getenv('ETHERSCAN_API_KEY', ''),  # V2 API uses same key for all chains
         'explorer_url': 'https://arbiscan.io',
         'symbol': 'ETH',
         'decimals': 18

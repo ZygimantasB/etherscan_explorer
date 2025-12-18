@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Address Comparison - Crypto Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-bar-chart-steps"></i> Address Comparison Tool</h2>
+
+        <!-- Input Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search"></i> Compare Addresses
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">Chain</label>
+                        <select class="form-select" id="chainSelect">
+                            {% for chain in chains %}
+                            <option value="{{ chain.id }}">{{ chain.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-9">
+                        <label class="form-label">Addresses (2-5, comma-separated)</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="addressInput" placeholder="0x..., 0x..., 0x...">
+                            <button class="btn btn-primary" onclick="compareAddresses()">
+                                <i class="bi bi-search"></i> Compare
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="compare-loading" class="text-center py-5 d-none">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Comparing addresses...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="compare-results" class="d-none">
+            <!-- Comparison Table -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-table"></i> Comparison Results
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Metric</th>
+                                    <th id="addr-col-1">Address 1</th>
+                                    <th id="addr-col-2">Address 2</th>
+                                    <th id="addr-col-3" class="d-none">Address 3</th>
+                                    <th id="addr-col-4" class="d-none">Address 4</th>
+                                    <th id="addr-col-5" class="d-none">Address 5</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compare-table">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <i class="bi bi-graph-up"></i> Balance Comparison
+                        </div>
+                        <div class="card-body">
+                            <canvas id="balanceChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <i class="bi bi-graph-up"></i> Activity Comparison
+                        </div>
+                        <div class="card-body">
+                            <canvas id="activityChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let balanceChart = null;
+    let activityChart = null;
+
+    function compareAddresses() {
+        const chain = document.getElementById('chainSelect').value;
+        const input = document.getElementById('addressInput').value;
+        const addresses = input.split(',').map(a => a.trim()).filter(a => a.startsWith('0x'));
+
+        if (addresses.length < 2) {
+            alert('Please enter at least 2 addresses');
+            return;
+        }
+
+        document.getElementById('compare-loading').classList.remove('d-none');
+        document.getElementById('compare-results').classList.add('d-none');
+
+        fetch('/api/compare?chain=' + chain + '&addresses=' + addresses.join(','))
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('compare-loading').classList.add('d-none');
+                document.getElementById('compare-results').classList.remove('d-none');
+
+                // Update column headers
+                for (let i = 0; i < 5; i++) {
+                    const col = document.getElementById('addr-col-' + (i + 1));
+                    if (i < data.length) {
+                        col.classList.remove('d-none');
+                        col.innerHTML = `<a href="/address/${chain}/${data[i].address}" class="small">${data[i].address.substring(0, 10)}...</a>`;
+                        if (data[i].label) {
+                            col.innerHTML += `<br><span class="badge bg-info">${data[i].label.name}</span>`;
+                        }
+                    } else {
+                        col.classList.add('d-none');
+                    }
+                }
+
+                // Build comparison table
+                const table = document.getElementById('compare-table');
+                table.innerHTML = '';
+
+                const metrics = [
+                    { key: 'balance', label: 'Native Balance', format: v => v.toFixed(4) },
+                    { key: 'balance_usd', label: 'Balance (USD)', format: v => '$' + v.toFixed(2) },
+                    { key: 'total_usd', label: 'Total Value (USD)', format: v => '$' + v.toFixed(2) },
+                    { key: 'token_count', label: 'Token Types', format: v => v },
+                    { key: 'nft_count', label: 'NFTs', format: v => v },
+                    { key: 'tx_count', label: 'Transactions', format: v => v },
+                    { key: 'risk_score', label: 'Risk Score', format: v => v.score + '/100 (' + v.level + ')' }
+                ];
+
+                metrics.forEach(metric => {
+                    const row = document.createElement('tr');
+                    let html = `<td><strong>${metric.label}</strong></td>`;
+                    for (let i = 0; i < 5; i++) {
+                        if (i < data.length) {
+                            const value = data[i][metric.key];
+                            html += `<td>${metric.format(value)}</td>`;
+                        } else {
+                            html += `<td class="d-none"></td>`;
+                        }
+                    }
+                    row.innerHTML = html;
+                    table.appendChild(row);
+                });
+
+                // Add stats rows
+                const statsMetrics = [
+                    { key: 'outgoing_txs', label: 'Outgoing TXs' },
+                    { key: 'incoming_txs', label: 'Incoming TXs' },
+                    { key: 'unique_addresses_count', label: 'Unique Addresses' },
+                    { key: 'total_gas_spent', label: 'Gas Spent', format: v => v.toFixed(4) }
+                ];
+
+                statsMetrics.forEach(metric => {
+                    const row = document.createElement('tr');
+                    let html = `<td><strong>${metric.label}</strong></td>`;
+                    for (let i = 0; i < 5; i++) {
+                        if (i < data.length) {
+                            const value = data[i].stats[metric.key];
+                            html += `<td>${metric.format ? metric.format(value) : value}</td>`;
+                        } else {
+                            html += `<td class="d-none"></td>`;
+                        }
+                    }
+                    row.innerHTML = html;
+                    table.appendChild(row);
+                });
+
+                // Update charts
+                updateCharts(data);
+            })
+            .catch(e => {
+                document.getElementById('compare-loading').classList.add('d-none');
+                alert('Error comparing addresses: ' + e.message);
+            });
+    }
+
+    function updateCharts(data) {
+        const labels = data.map(d => d.address.substring(0, 8) + '...');
+        const colors = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1'];
+
+        // Destroy existing charts
+        if (balanceChart) balanceChart.destroy();
+        if (activityChart) activityChart.destroy();
+
+        // Balance Chart
+        const balanceCtx = document.getElementById('balanceChart').getContext('2d');
+        balanceChart = new Chart(balanceCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Total Value (USD)',
+                    data: data.map(d => d.total_usd),
+                    backgroundColor: colors.slice(0, data.length)
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Activity Chart
+        const activityCtx = document.getElementById('activityChart').getContext('2d');
+        activityChart = new Chart(activityCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Outgoing',
+                        data: data.map(d => d.stats.outgoing_txs),
+                        backgroundColor: '#dc3545'
+                    },
+                    {
+                        label: 'Incoming',
+                        data: data.map(d => d.stats.incoming_txs),
+                        backgroundColor: '#198754'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

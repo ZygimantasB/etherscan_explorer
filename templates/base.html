@@ -25,6 +25,24 @@
                             <i class="bi bi-search"></i> Search
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('portfolio_page') }}">
+                            <i class="bi bi-pie-chart"></i> Portfolio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('compare_page') }}">
+                            <i class="bi bi-bar-chart-steps"></i> Compare
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="bi bi-star"></i> Watchlist
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" id="watchlist-dropdown">
+                            <li><a class="dropdown-item disabled" href="#">No addresses saved</a></li>
+                        </ul>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -52,6 +70,35 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Populate watchlist dropdown on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdown = document.getElementById('watchlist-dropdown');
+            const saved = localStorage.getItem('crypto_watchlist');
+
+            if (saved) {
+                const watchlist = JSON.parse(saved);
+                if (watchlist.length > 0) {
+                    dropdown.innerHTML = '';
+                    watchlist.slice(0, 10).forEach(addr => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<a class="dropdown-item" href="/address/ethereum/${addr}">${addr.substring(0, 10)}...${addr.slice(-6)}</a>`;
+                        dropdown.appendChild(li);
+                    });
+                    // Add divider and clear option
+                    dropdown.innerHTML += '<li><hr class="dropdown-divider"></li>';
+                    dropdown.innerHTML += '<li><a class="dropdown-item text-danger" href="#" onclick="clearWatchlist()"><i class="bi bi-trash"></i> Clear Watchlist</a></li>';
+                }
+            }
+        });
+
+        function clearWatchlist() {
+            if (confirm('Clear all addresses from watchlist?')) {
+                localStorage.removeItem('crypto_watchlist');
+                location.reload();
+            }
+        }
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
