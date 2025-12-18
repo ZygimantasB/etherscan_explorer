@@ -626,6 +626,46 @@
 
     <!-- Sidebar -->
     <div class="col-lg-4">
+        <!-- Wallet Score -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-award"></i> Wallet Score
+            </div>
+            <div class="card-body text-center" id="wallet-score-card">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <small class="text-muted">Calculating...</small>
+            </div>
+        </div>
+
+        <!-- Address Notes -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-sticky"></i> Notes</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="saveNote()">Save</button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control form-control-sm" id="address-notes" rows="3" placeholder="Add private notes about this address..."></textarea>
+            </div>
+        </div>
+
+        <!-- Token Approvals Warning -->
+        <div class="card mb-4" id="approvals-card" style="display: none;">
+            <div class="card-header bg-warning text-dark">
+                <i class="bi bi-exclamation-triangle"></i> Token Approvals
+            </div>
+            <div class="card-body" id="approvals-body">
+            </div>
+        </div>
+
+        <!-- MEV Exposure -->
+        <div class="card mb-4" id="mev-card" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-shield-exclamation"></i> MEV Exposure
+            </div>
+            <div class="card-body" id="mev-body">
+            </div>
+        </div>
+
         <!-- Search -->
         <div class="card mb-4">
             <div class="card-header">
@@ -737,6 +777,10 @@
         loadGraph(graphUrl, currentChain);
         checkWatchlistStatus();
         loadGasTracker();
+        loadWalletScore();
+        loadApprovals();
+        loadMEVExposure();
+        loadAddressNotes();
     });
 
     function copyAddress() {
@@ -814,6 +858,132 @@
                 console.log('TX Summary:', data);
             })
             .catch(e => console.log('TX Summary error:', e));
+    }
+
+    // Wallet Score
+    function loadWalletScore() {
+        const container = document.getElementById('wallet-score-card');
+        fetch('/api/reputation/' + currentChain + '/' + currentAddress)
+            .then(r => r.json())
+            .then(data => {
+                const score = data.score || {};
+                const badges = data.badges || [];
+
+                let badgesHtml = badges.slice(0, 4).map(b =>
+                    `<span class="badge bg-${b.color} me-1"><i class="bi bi-${b.icon}"></i> ${b.name}</span>`
+                ).join('');
+
+                container.innerHTML = `
+                    <h2 class="display-4 mb-0">${score.score || 0}</h2>
+                    <span class="badge bg-${score.tier_color || 'secondary'} mb-2">${score.tier || 'Unknown'}</span>
+                    <div class="small">${badgesHtml}</div>
+                    ${score.factors ? `<div class="small text-muted mt-2">${score.factors.slice(0, 3).join('<br>')}</div>` : ''}
+                `;
+            })
+            .catch(e => {
+                container.innerHTML = '<span class="text-muted">Unable to calculate</span>';
+            });
+    }
+
+    // Token Approvals
+    function loadApprovals() {
+        const card = document.getElementById('approvals-card');
+        const body = document.getElementById('approvals-body');
+
+        fetch('/api/approvals/' + currentChain + '/' + currentAddress)
+            .then(r => r.json())
+            .then(data => {
+                const approvals = data.approvals || [];
+                const risky = approvals.filter(a => a.risk_level === 'high' || a.risk_level === 'critical');
+
+                if (approvals.length > 0) {
+                    card.style.display = 'block';
+
+                    let html = `<div class="small mb-2"><strong>${approvals.length}</strong> active approvals`;
+                    if (risky.length > 0) {
+                        html += ` (<span class="text-danger">${risky.length} risky</span>)`;
+                    }
+                    html += '</div>';
+
+                    html += '<div class="list-group list-group-flush small">';
+                    approvals.slice(0, 5).forEach(a => {
+                        const riskClass = a.risk_level === 'critical' ? 'danger' : a.risk_level === 'high' ? 'warning' : 'secondary';
+                        html += `
+                            <div class="list-group-item p-2">
+                                <div class="d-flex justify-content-between">
+                                    <strong>${a.token_symbol}</strong>
+                                    <span class="badge bg-${riskClass}">${a.risk_level}</span>
+                                </div>
+                                <small class="text-muted">${a.is_unlimited ? 'Unlimited' : 'Limited'}</small>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+
+                    if (approvals.length > 5) {
+                        html += `<div class="text-center mt-2"><a href="/analytics" class="small">View all ${approvals.length} approvals</a></div>`;
+                    }
+
+                    body.innerHTML = html;
+                }
+            })
+            .catch(e => console.log('Approvals error:', e));
+    }
+
+    // MEV Exposure
+    function loadMEVExposure() {
+        const card = document.getElementById('mev-card');
+        const body = document.getElementById('mev-body');
+
+        fetch('/api/mev/' + currentChain + '/' + currentAddress)
+            .then(r => r.json())
+            .then(data => {
+                const analysis = data.analysis || {};
+                const summary = data.summary || {};
+
+                if (analysis.mev_risk_score > 0 || (data.mev_interactions && data.mev_interactions.length > 0)) {
+                    card.style.display = 'block';
+
+                    const riskColor = summary.risk_level === 'High' ? 'danger' : summary.risk_level === 'Medium' ? 'warning' : 'success';
+
+                    body.innerHTML = `
+                        <div class="text-center mb-2">
+                            <h4 class="mb-0">${analysis.mev_risk_score || 0}</h4>
+                            <span class="badge bg-${riskColor}">${summary.risk_level || 'Low'} Risk</span>
+                        </div>
+                        <div class="small">
+                            ${summary.summary ? summary.summary.map(s => `<div>• ${s}</div>`).join('') : '<div class="text-muted">No MEV activity detected</div>'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(e => console.log('MEV error:', e));
+    }
+
+    // Address Notes (localStorage)
+    function getNotesKey() {
+        return 'crypto_notes_' + currentAddress.toLowerCase();
+    }
+
+    function loadAddressNotes() {
+        const textarea = document.getElementById('address-notes');
+        const saved = localStorage.getItem(getNotesKey());
+        if (saved) {
+            textarea.value = saved;
+        }
+    }
+
+    function saveNote() {
+        const textarea = document.getElementById('address-notes');
+        const note = textarea.value.trim();
+
+        if (note) {
+            localStorage.setItem(getNotesKey(), note);
+            alert('Note saved!');
+        } else {
+            localStorage.removeItem(getNotesKey());
+            alert('Note cleared!');
+        }
     }
 </script>
 {% endblock %}

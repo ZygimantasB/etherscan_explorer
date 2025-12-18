@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard - Crypto Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-graph-up"></i> Address Analytics Dashboard</h2>
+
+        <!-- Address Input -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search"></i> Analyze Address
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <select class="form-select" id="chainSelect">
+                            {% for chain in chains %}
+                            <option value="{{ chain.id }}">{{ chain.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="addressInput" placeholder="0x...">
+                            <button class="btn btn-primary" onclick="loadAnalytics()">
+                                <i class="bi bi-graph-up"></i> Analyze
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="text-center py-5 d-none">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Loading analytics...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="d-none">
+            <!-- Wallet Score -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <i class="bi bi-award"></i> Wallet Score
+                        </div>
+                        <div class="card-body text-center">
+                            <h1 id="wallet-score" class="display-3">--</h1>
+                            <p id="wallet-tier" class="badge bg-secondary">--</p>
+                            <div id="wallet-badges" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <i class="bi bi-shield"></i> MEV Exposure
+                        </div>
+                        <div class="card-body text-center">
+                            <h1 id="mev-score" class="display-3">--</h1>
+                            <p id="mev-level" class="badge bg-secondary">--</p>
+                            <div id="mev-summary" class="small text-muted mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <i class="bi bi-cash-stack"></i> P&L Summary
+                        </div>
+                        <div class="card-body text-center">
+                            <h1 id="total-pnl" class="display-4">$--</h1>
+                            <p class="small text-muted">
+                                <span id="win-rate">--%</span> Win Rate |
+                                <span id="tokens-traded">--</span> Tokens
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Heatmap -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-calendar3"></i> Activity Heatmap (Last 365 Days)
+                </div>
+                <div class="card-body">
+                    <div id="heatmap-container" style="overflow-x: auto;"></div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <i class="bi bi-clock"></i> Hourly Activity
+                        </div>
+                        <div class="card-body">
+                            <canvas id="hourlyChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <i class="bi bi-pie-chart"></i> Token Distribution
+                        </div>
+                        <div class="card-body">
+                            <canvas id="distributionChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approvals -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <span><i class="bi bi-key"></i> Token Approvals</span>
+                    <span id="approval-count" class="badge bg-warning">--</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Token</th><th>Spender</th><th>Amount</th><th>Risk</th></tr>
+                            </thead>
+                            <tbody id="approvals-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Airdrops -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-gift"></i> Airdrop Analysis
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Claimed Airdrops</h6>
+                            <div id="claimed-airdrops"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Potential Eligibility</h6>
+                            <div id="potential-airdrops"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Related Addresses -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-diagram-3"></i> Related Addresses (Clustering)
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Address</th><th>Confidence</th><th>Reasons</th></tr>
+                            </thead>
+                            <tbody id="related-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let hourlyChart = null;
+    let distributionChart = null;
+
+    async function loadAnalytics() {
+        const chain = document.getElementById('chainSelect').value;
+        const address = document.getElementById('addressInput').value.trim();
+
+        if (!address.startsWith('0x')) {
+            alert('Please enter a valid address');
+            return;
+        }
+
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('results').classList.add('d-none');
+
+        try {
+            // Load all data in parallel
+            const [reputation, mev, pnl, analytics, approvals, airdrops, clustering] = await Promise.all([
+                fetch(`/api/reputation/${chain}/${address}`).then(r => r.json()),
+                fetch(`/api/mev/${chain}/${address}`).then(r => r.json()),
+                fetch(`/api/pnl/${chain}/${address}`).then(r => r.json()),
+                fetch(`/api/analytics/${chain}/${address}`).then(r => r.json()),
+                fetch(`/api/approvals/${chain}/${address}`).then(r => r.json()),
+                fetch(`/api/airdrops/${chain}/${address}`).then(r => r.json()),
+                fetch(`/api/clustering/${chain}/${address}`).then(r => r.json())
+            ]);
+
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('results').classList.remove('d-none');
+
+            // Wallet Score
+            document.getElementById('wallet-score').textContent = reputation.score?.score || 0;
+            document.getElementById('wallet-tier').textContent = reputation.score?.tier || 'Unknown';
+            document.getElementById('wallet-tier').className = `badge bg-${reputation.score?.tier_color || 'secondary'}`;
+
+            // Badges
+            const badgesContainer = document.getElementById('wallet-badges');
+            badgesContainer.innerHTML = '';
+            (reputation.badges || []).forEach(badge => {
+                badgesContainer.innerHTML += `<span class="badge bg-${badge.color} me-1">${badge.name}</span>`;
+            });
+
+            // MEV
+            document.getElementById('mev-score').textContent = mev.analysis?.mev_risk_score || 0;
+            document.getElementById('mev-level').textContent = mev.summary?.risk_level || 'Low';
+            document.getElementById('mev-summary').innerHTML = (mev.summary?.summary || []).join('<br>');
+
+            // P&L
+            const pnlSummary = pnl.summary || {};
+            document.getElementById('total-pnl').textContent = '$' + (pnlSummary.total_pnl || 0).toFixed(2);
+            document.getElementById('total-pnl').className = pnlSummary.total_pnl >= 0 ? 'display-4 text-success' : 'display-4 text-danger';
+            document.getElementById('win-rate').textContent = (pnlSummary.win_rate || 0).toFixed(1) + '%';
+            document.getElementById('tokens-traded').textContent = pnlSummary.total_tokens_traded || 0;
+
+            // Hourly Chart
+            updateHourlyChart(analytics.hourly_activity || []);
+
+            // Distribution Chart
+            updateDistributionChart(analytics.token_distribution || []);
+
+            // Heatmap
+            renderHeatmap(analytics.heatmap || []);
+
+            // Approvals
+            const approvalsTable = document.getElementById('approvals-table');
+            approvalsTable.innerHTML = '';
+            document.getElementById('approval-count').textContent = (approvals.approvals || []).length + ' approvals';
+            (approvals.approvals || []).slice(0, 20).forEach(a => {
+                const riskClass = a.risk_level === 'critical' ? 'danger' : a.risk_level === 'high' ? 'warning' : 'secondary';
+                approvalsTable.innerHTML += `
+                    <tr>
+                        <td>${a.token_symbol}</td>
+                        <td>${a.spender.substring(0, 10)}...</td>
+                        <td>${a.is_unlimited ? 'Unlimited' : 'Limited'}</td>
+                        <td><span class="badge bg-${riskClass}">${a.risk_level}</span></td>
+                    </tr>
+                `;
+            });
+
+            // Airdrops
+            const claimedDiv = document.getElementById('claimed-airdrops');
+            claimedDiv.innerHTML = '';
+            (airdrops.claimed?.claimed || []).forEach(a => {
+                claimedDiv.innerHTML += `<span class="badge bg-success me-1">${a.token}</span>`;
+            });
+            if (!airdrops.claimed?.claimed?.length) {
+                claimedDiv.innerHTML = '<span class="text-muted">No claimed airdrops detected</span>';
+            }
+
+            const potentialDiv = document.getElementById('potential-airdrops');
+            potentialDiv.innerHTML = '';
+            (airdrops.potential_eligibility || []).slice(0, 5).forEach(a => {
+                const color = a.likelihood === 'High' ? 'success' : a.likelihood === 'Medium' ? 'warning' : 'secondary';
+                potentialDiv.innerHTML += `
+                    <div class="mb-2">
+                        <strong>${a.name}</strong>
+                        <span class="badge bg-${color}">${a.likelihood}</span>
+                        <div class="small text-muted">${a.met_criteria.join(', ') || 'No criteria met'}</div>
+                    </div>
+                `;
+            });
+
+            // Related Addresses
+            const relatedTable = document.getElementById('related-table');
+            relatedTable.innerHTML = '';
+            (clustering.related_addresses || []).slice(0, 10).forEach(r => {
+                relatedTable.innerHTML += `
+                    <tr>
+                        <td><a href="/address/${chain}/${r.address}">${r.address.substring(0, 12)}...</a></td>
+                        <td><div class="progress" style="height: 20px;">
+                            <div class="progress-bar" style="width: ${r.confidence}%">${r.confidence}%</div>
+                        </div></td>
+                        <td class="small">${r.reasons.join(', ')}</td>
+                    </tr>
+                `;
+            });
+
+        } catch (e) {
+            document.getElementById('loading').classList.add('d-none');
+            alert('Error loading analytics: ' + e.message);
+        }
+    }
+
+    function updateHourlyChart(data) {
+        const ctx = document.getElementById('hourlyChart').getContext('2d');
+        if (hourlyChart) hourlyChart.destroy();
+
+        hourlyChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.map(d => d.label),
+                datasets: [{
+                    label: 'Transactions',
+                    data: data.map(d => d.count),
+                    backgroundColor: '#0d6efd'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function updateDistributionChart(data) {
+        const ctx = document.getElementById('distributionChart').getContext('2d');
+        if (distributionChart) distributionChart.destroy();
+
+        const colors = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14', '#20c997', '#6610f2', '#e83e8c', '#17a2b8'];
+
+        distributionChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.map(d => d.symbol),
+                datasets: [{
+                    data: data.map(d => d.value_usd),
+                    backgroundColor: colors.slice(0, data.length)
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+
+    function renderHeatmap(data) {
+        const container = document.getElementById('heatmap-container');
+        container.innerHTML = '';
+
+        // Create simple heatmap visualization
+        const maxCount = Math.max(...data.map(d => d.count), 1);
+        let html = '<div style="display: flex; flex-wrap: wrap; gap: 2px;">';
+
+        data.forEach(d => {
+            const intensity = d.count / maxCount;
+            const color = intensity === 0 ? '#eee' :
+                          intensity < 0.25 ? '#c6e48b' :
+                          intensity < 0.5 ? '#7bc96f' :
+                          intensity < 0.75 ? '#239a3b' : '#196127';
+
+            html += `<div style="width: 12px; height: 12px; background: ${color}; border-radius: 2px;"
+                         title="${d.date}: ${d.count} txs"></div>`;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+</script>
+{% endblock %}
