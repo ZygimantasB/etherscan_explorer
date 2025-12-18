@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Analytics - Crypto Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-gear-wide-connected"></i> Advanced Analytics Dashboard</h2>
+
+        <!-- Address Input -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search"></i> Analyze Address
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <select class="form-select" id="chainSelect">
+                            {% for chain in chains %}
+                            <option value="{{ chain.id }}">{{ chain.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="addressInput" placeholder="0x...">
+                            <button class="btn btn-primary" onclick="loadAllAnalytics()">
+                                <i class="bi bi-lightning"></i> Full Analysis
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="text-center py-5 d-none">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Running advanced analysis...</p>
+            <div class="progress mt-3" style="height: 5px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="d-none">
+            <!-- Wallet Profile -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-person-badge"></i> Wallet Profile
+                </div>
+                <div class="card-body" id="profile-content">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div id="profile-primary"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Behavior Insights</h6>
+                            <div id="profile-insights"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Activity Patterns</h6>
+                            <div id="profile-patterns"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Whale Activity -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <span><i class="bi bi-water"></i> Whale Activity</span>
+                    <span id="whale-badge" class="badge bg-secondary"></span>
+                </div>
+                <div class="card-body">
+                    <div id="whale-alerts"></div>
+                    <div class="table-responsive mt-3" style="max-height: 300px;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Type</th><th>Amount</th><th>Value</th><th>Counterparty</th><th>Date</th></tr>
+                            </thead>
+                            <tbody id="whale-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Copy Trading Score -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-clipboard-data"></i> Copy Trading Analysis
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <h1 id="copy-score" class="display-3">--</h1>
+                            <p id="copy-recommendation" class="badge bg-secondary">--</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Performance</h6>
+                            <div id="copy-performance"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Recent Signals</h6>
+                            <div id="copy-signals" style="max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flash Loans & Arbitrage -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-lightning-charge"></i> Flash Loans & Arbitrage
+                </div>
+                <div class="card-body" id="flashloan-content">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Flash Loan Activity</h6>
+                            <div id="flashloan-list"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Arbitrage Detection</h6>
+                            <div id="arbitrage-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Token Sniper Detection -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <span><i class="bi bi-crosshair"></i> Sniper Bot Detection</span>
+                    <span id="sniper-badge" class="badge bg-secondary"></span>
+                </div>
+                <div class="card-body" id="sniper-content">
+                    <div id="sniper-summary"></div>
+                    <div id="sniper-patterns"></div>
+                </div>
+            </div>
+
+            <!-- Funding Flow -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-diagram-3"></i> Funding Flow Analysis
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Top Sources</h6>
+                            <div id="funding-sources"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Top Destinations</h6>
+                            <div id="funding-destinations"></div>
+                        </div>
+                    </div>
+                    <div id="funding-suspicious" class="mt-3"></div>
+                </div>
+            </div>
+
+            <!-- Liquidity Pools -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-droplet"></i> Liquidity Pool Positions
+                </div>
+                <div class="card-body" id="lp-content">
+                    <div id="lp-positions"></div>
+                    <div id="lp-operations" class="mt-3"></div>
+                </div>
+            </div>
+
+            <!-- Governance -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-building"></i> Governance Participation
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <h1 id="gov-score" class="display-3">--</h1>
+                            <p id="gov-tier" class="badge bg-secondary">--</p>
+                        </div>
+                        <div class="col-md-8">
+                            <div id="gov-activity"></div>
+                            <div id="gov-tokens" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tax Report -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <span><i class="bi bi-calculator"></i> Tax Report</span>
+                    <div>
+                        <select class="form-select form-select-sm d-inline-block" style="width: auto;" id="taxYear">
+                            <option value="">All Time</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                            <option value="2022">2022</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary" onclick="downloadTaxReport()">
+                            <i class="bi bi-download"></i> Export CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <h6>Short-Term Gains</h6>
+                            <h4 id="tax-st-gains" class="text-success">$0</h4>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h6>Short-Term Losses</h6>
+                            <h4 id="tax-st-losses" class="text-danger">$0</h4>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h6>Long-Term Gains</h6>
+                            <h4 id="tax-lt-gains" class="text-success">$0</h4>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h6>Long-Term Losses</h6>
+                            <h4 id="tax-lt-losses" class="text-danger">$0</h4>
+                        </div>
+                    </div>
+                    <div id="tax-summary" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentChain = '';
+    let currentAddress = '';
+
+    async function loadAllAnalytics() {
+        currentChain = document.getElementById('chainSelect').value;
+        currentAddress = document.getElementById('addressInput').value.trim();
+
+        if (!currentAddress.startsWith('0x')) {
+            alert('Please enter a valid address');
+            return;
+        }
+
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('results').classList.add('d-none');
+
+        const progressBar = document.getElementById('progressBar');
+        let progress = 0;
+
+        const endpoints = [
+            { name: 'profile', url: `/api/wallet-profile/${currentChain}/${currentAddress}` },
+            { name: 'whale', url: `/api/whale-tracker/${currentChain}/${currentAddress}` },
+            { name: 'copy', url: `/api/copy-trading/${currentChain}/${currentAddress}` },
+            { name: 'flash', url: `/api/flash-loans/${currentChain}/${currentAddress}` },
+            { name: 'sniper', url: `/api/sniper-detection/${currentChain}/${currentAddress}` },
+            { name: 'funding', url: `/api/funding-flow/${currentChain}/${currentAddress}` },
+            { name: 'lp', url: `/api/liquidity-pools/${currentChain}/${currentAddress}` },
+            { name: 'gov', url: `/api/governance/${currentChain}/${currentAddress}` },
+            { name: 'tax', url: `/api/tax-report/${currentChain}/${currentAddress}` }
+        ];
+
+        const results = {};
+
+        for (const endpoint of endpoints) {
+            try {
+                const response = await fetch(endpoint.url);
+                results[endpoint.name] = await response.json();
+            } catch (e) {
+                results[endpoint.name] = { error: e.message };
+            }
+            progress += 100 / endpoints.length;
+            progressBar.style.width = `${progress}%`;
+        }
+
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('results').classList.remove('d-none');
+
+        renderResults(results);
+    }
+
+    function renderResults(data) {
+        // Wallet Profile
+        if (data.profile && data.profile.classification) {
+            const primary = data.profile.classification.primary || {};
+            document.getElementById('profile-primary').innerHTML = `
+                <i class="bi bi-${primary.icon || 'person'} display-1 text-${primary.color || 'secondary'}"></i>
+                <h3>${primary.name || 'Unknown'}</h3>
+                <p class="text-muted">${primary.description || ''}</p>
+                <span class="badge bg-${primary.color || 'secondary'}">${primary.score || 0}% match</span>
+            `;
+
+            const insights = data.profile.insights || [];
+            document.getElementById('profile-insights').innerHTML = insights.map(i =>
+                `<div class="mb-2"><span class="badge bg-info">${i.category}</span> ${i.insight}</div>`
+            ).join('') || '<span class="text-muted">No insights</span>';
+
+            const patterns = data.profile.patterns || {};
+            document.getElementById('profile-patterns').innerHTML = `
+                <div>Total TXs: <strong>${patterns.total_txs || 0}</strong></div>
+                <div>Tokens Traded: <strong>${patterns.unique_tokens_traded || 0}</strong></div>
+                <div>Activity: <strong>${patterns.tx_frequency || 'low'}</strong></div>
+                <div>Buy/Sell: <strong>${patterns.buy_count || 0}/${patterns.sell_count || 0}</strong></div>
+            `;
+        }
+
+        // Whale Activity
+        if (data.whale) {
+            const analysis = data.whale.analysis || {};
+            document.getElementById('whale-badge').textContent = `${analysis.total_whale_txs || 0} whale transactions`;
+
+            const alerts = data.whale.alerts || [];
+            document.getElementById('whale-alerts').innerHTML = alerts.slice(0, 5).map(a =>
+                `<div class="alert alert-${a.level === 'critical' ? 'danger' : a.level === 'high' ? 'warning' : 'info'} py-1 mb-1">
+                    ${a.message}
+                </div>`
+            ).join('') || '<span class="text-muted">No whale alerts</span>';
+
+            const whaleTxs = data.whale.whale_transactions || [];
+            document.getElementById('whale-table').innerHTML = whaleTxs.slice(0, 10).map(tx => `
+                <tr>
+                    <td><span class="badge bg-${tx.type === 'token' ? 'primary' : 'secondary'}">${tx.type}</span></td>
+                    <td>${tx.token_symbol || 'ETH'}</td>
+                    <td>$${(tx.value_usd || 0).toLocaleString()}</td>
+                    <td>${(tx.to || tx.from || '').substring(0, 10)}...</td>
+                    <td>${tx.timestamp ? new Date(tx.timestamp * 1000).toLocaleDateString() : '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Copy Trading
+        if (data.copy) {
+            const score = data.copy.copy_score || {};
+            document.getElementById('copy-score').textContent = score.score || 0;
+            const rec = score.recommendation || {};
+            document.getElementById('copy-recommendation').textContent = rec.text || 'Unknown';
+            document.getElementById('copy-recommendation').className = `badge bg-${rec.color || 'secondary'}`;
+
+            const perf = data.copy.performance || {};
+            document.getElementById('copy-performance').innerHTML = `
+                <div>Win Rate: <strong>${(perf.win_rate || 0).toFixed(1)}%</strong></div>
+                <div>Total Trades: <strong>${perf.total_trades || 0}</strong></div>
+                <div>Net Profit: <strong class="${(perf.total_profit_usd - perf.total_loss_usd) >= 0 ? 'text-success' : 'text-danger'}">
+                    $${((perf.total_profit_usd || 0) - (perf.total_loss_usd || 0)).toLocaleString()}
+                </strong></div>
+            `;
+
+            const signals = data.copy.recent_signals || [];
+            document.getElementById('copy-signals').innerHTML = signals.slice(0, 10).map(s =>
+                `<div class="mb-1">
+                    <span class="badge bg-${s.type === 'BUY' ? 'success' : 'danger'}">${s.type}</span>
+                    <strong>${s.token_symbol}</strong>
+                    <small class="text-muted">$${(s.value_usd || 0).toFixed(2)}</small>
+                </div>`
+            ).join('') || '<span class="text-muted">No recent signals</span>';
+        }
+
+        // Flash Loans
+        if (data.flash) {
+            const flashLoans = data.flash.flash_loans || [];
+            document.getElementById('flashloan-list').innerHTML = flashLoans.length > 0 ?
+                flashLoans.slice(0, 5).map(fl =>
+                    `<div class="mb-2">
+                        <span class="badge bg-warning">${fl.confidence}% confidence</span>
+                        ${fl.protocols?.join(', ') || 'Unknown'}
+                        <small class="text-muted d-block">${fl.indicators?.join(', ') || ''}</small>
+                    </div>`
+                ).join('') :
+                '<span class="text-muted">No flash loans detected</span>';
+
+            const arbitrage = data.flash.arbitrage || [];
+            document.getElementById('arbitrage-list').innerHTML = arbitrage.length > 0 ?
+                arbitrage.slice(0, 5).map(arb =>
+                    `<div class="mb-2">
+                        <span class="badge bg-info">${arb.confidence}%</span>
+                        ${arb.tokens_involved?.join(' → ') || ''}
+                        <small class="text-muted d-block">${arb.patterns?.join(', ') || ''}</small>
+                    </div>`
+                ).join('') :
+                '<span class="text-muted">No arbitrage detected</span>';
+        }
+
+        // Sniper Detection
+        if (data.sniper) {
+            const summary = data.sniper.summary || {};
+            document.getElementById('sniper-badge').textContent = summary.is_sniper ? 'Potential Sniper' : 'Not a Sniper';
+            document.getElementById('sniper-badge').className = `badge bg-${summary.is_sniper ? 'danger' : 'success'}`;
+
+            document.getElementById('sniper-summary').innerHTML = `
+                <div class="row">
+                    <div class="col-md-3"><strong>${summary.early_buys_detected || 0}</strong> Early Buys</div>
+                    <div class="col-md-3"><strong>${summary.quick_flips || 0}</strong> Quick Flips</div>
+                    <div class="col-md-3"><strong>${summary.high_gas_transactions || 0}</strong> High Gas TXs</div>
+                    <div class="col-md-3">Risk: <span class="badge bg-${summary.risk_assessment === 'high' ? 'danger' : 'secondary'}">${summary.risk_assessment || 'low'}</span></div>
+                </div>
+            `;
+        }
+
+        // Funding Flow
+        if (data.funding) {
+            const sources = data.funding.sources || [];
+            document.getElementById('funding-sources').innerHTML = sources.slice(0, 5).map(s =>
+                `<div class="mb-1">${(s.address || '').substring(0, 12)}... <strong>$${(s.amount_usd || 0).toLocaleString()}</strong></div>`
+            ).join('') || '<span class="text-muted">No sources</span>';
+
+            const dests = data.funding.destinations || [];
+            document.getElementById('funding-destinations').innerHTML = dests.slice(0, 5).map(d =>
+                `<div class="mb-1">${(d.address || '').substring(0, 12)}... <strong>$${(d.amount_usd || 0).toLocaleString()}</strong></div>`
+            ).join('') || '<span class="text-muted">No destinations</span>';
+
+            const suspicious = data.funding.suspicious_patterns || [];
+            document.getElementById('funding-suspicious').innerHTML = suspicious.length > 0 ?
+                suspicious.map(p =>
+                    `<div class="alert alert-${p.risk === 'high' ? 'danger' : 'warning'} py-1 mb-1">${p.description}</div>`
+                ).join('') : '';
+        }
+
+        // LP Positions
+        if (data.lp) {
+            const positions = data.lp.positions || [];
+            document.getElementById('lp-positions').innerHTML = positions.length > 0 ?
+                `<div class="table-responsive"><table class="table table-sm">
+                    <thead><tr><th>Pool</th><th>DEX</th><th>Balance</th><th>Value</th></tr></thead>
+                    <tbody>${positions.map(p => `
+                        <tr>
+                            <td>${p.token_symbol}</td>
+                            <td><span class="badge bg-primary">${p.dex}</span></td>
+                            <td>${(p.balance || 0).toFixed(4)}</td>
+                            <td>$${(p.value_usd || 0).toLocaleString()}</td>
+                        </tr>
+                    `).join('')}</tbody>
+                </table></div>` :
+                '<span class="text-muted">No LP positions detected</span>';
+        }
+
+        // Governance
+        if (data.gov) {
+            const score = data.gov.score || {};
+            document.getElementById('gov-score').textContent = score.score || 0;
+            const tier = score.tier || {};
+            document.getElementById('gov-tier').textContent = tier.name || 'Unknown';
+            document.getElementById('gov-tier').className = `badge bg-${tier.color || 'secondary'}`;
+
+            const activity = data.gov.activity || {};
+            document.getElementById('gov-activity').innerHTML = `
+                <div>Votes: <strong>${(activity.votes || []).length}</strong></div>
+                <div>Proposals: <strong>${(activity.proposals || []).length}</strong></div>
+                <div>Protocols: <strong>${(activity.protocols_participated || []).join(', ') || 'None'}</strong></div>
+            `;
+
+            const tokens = activity.governance_tokens_held || [];
+            document.getElementById('gov-tokens').innerHTML = tokens.map(t =>
+                `<span class="badge bg-primary me-1">${t.symbol}</span>`
+            ).join('') || '<span class="text-muted">No governance tokens</span>';
+        }
+
+        // Tax Report
+        if (data.tax) {
+            const summary = data.tax.summary || {};
+            document.getElementById('tax-st-gains').textContent = `$${(summary.short_term_gains || 0).toLocaleString()}`;
+            document.getElementById('tax-st-losses').textContent = `$${(summary.short_term_losses || 0).toLocaleString()}`;
+            document.getElementById('tax-lt-gains').textContent = `$${(summary.long_term_gains || 0).toLocaleString()}`;
+            document.getElementById('tax-lt-losses').textContent = `$${(summary.long_term_losses || 0).toLocaleString()}`;
+
+            document.getElementById('tax-summary').innerHTML = `
+                <div class="row">
+                    <div class="col-md-4">Net Short-Term: <strong class="${summary.net_short_term >= 0 ? 'text-success' : 'text-danger'}">$${(summary.net_short_term || 0).toLocaleString()}</strong></div>
+                    <div class="col-md-4">Net Long-Term: <strong class="${summary.net_long_term >= 0 ? 'text-success' : 'text-danger'}">$${(summary.net_long_term || 0).toLocaleString()}</strong></div>
+                    <div class="col-md-4">Total Fees Paid: <strong>$${(summary.total_fees || 0).toLocaleString()}</strong></div>
+                </div>
+            `;
+        }
+    }
+
+    function downloadTaxReport() {
+        const year = document.getElementById('taxYear').value;
+        const url = `/api/tax-report/${currentChain}/${currentAddress}/export?year=${year}&format=generic`;
+        window.location.href = url;
+    }
+</script>
+{% endblock %}
