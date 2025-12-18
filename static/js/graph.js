@@ -837,50 +837,80 @@ function openDetailsModal(address) {
                         <span class="detail-value">${tokenTransfers.unique_tokens || 0}</span>
                     </div>
                     ${tokenTransfers.tokens_sent && tokenTransfers.tokens_sent.length > 0 ? `
-                    <div class="mt-2">
-                        <small class="text-muted" style="color: #f87171;"><i class="bi bi-arrow-up-right"></i> Tokens Sent:</small><br>
-                        ${tokenTransfers.tokens_sent.slice(0, 5).map(t => `
-                            <span class="token-badge" style="background: #3d1f1f; color: #f87171;">
-                                ${t.symbol}: ${t.amount > 1000000 ? (t.amount/1000000).toFixed(2) + 'M' : t.amount > 1000 ? (t.amount/1000).toFixed(2) + 'K' : t.amount.toFixed(2)}
-                            </span>
+                    <div class="mt-3" style="background: #2d1f1f; border-radius: 8px; padding: 12px;">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-arrow-up-right" style="color: #f87171; margin-right: 8px;"></i>
+                            <strong style="color: #f87171;">Tokens Sent</strong>
+                        </div>
+                        ${tokenTransfers.tokens_sent.slice(0, 8).map(t => `
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #3d2f2f;">
+                                <div>
+                                    <strong style="color: #fff;">${t.symbol}</strong>
+                                    ${t.name && t.name !== 'Unknown Token' ? `<br><small style="color: #888;">${t.name}</small>` : ''}
+                                </div>
+                                <div style="text-align: right; color: #f87171; font-weight: 500;">
+                                    ${formatTokenAmount(t.amount)}
+                                </div>
+                            </div>
                         `).join('')}
                     </div>
                     ` : ''}
                     ${tokenTransfers.tokens_received && tokenTransfers.tokens_received.length > 0 ? `
-                    <div class="mt-2">
-                        <small class="text-muted" style="color: #4ade80;"><i class="bi bi-arrow-down-left"></i> Tokens Received:</small><br>
-                        ${tokenTransfers.tokens_received.slice(0, 5).map(t => `
-                            <span class="token-badge" style="background: #1f3d1f; color: #4ade80;">
-                                ${t.symbol}: ${t.amount > 1000000 ? (t.amount/1000000).toFixed(2) + 'M' : t.amount > 1000 ? (t.amount/1000).toFixed(2) + 'K' : t.amount.toFixed(2)}
-                            </span>
+                    <div class="mt-3" style="background: #1f2d1f; border-radius: 8px; padding: 12px;">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-arrow-down-left" style="color: #4ade80; margin-right: 8px;"></i>
+                            <strong style="color: #4ade80;">Tokens Received</strong>
+                        </div>
+                        ${tokenTransfers.tokens_received.slice(0, 8).map(t => `
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #2f3d2f;">
+                                <div>
+                                    <strong style="color: #fff;">${t.symbol}</strong>
+                                    ${t.name && t.name !== 'Unknown Token' ? `<br><small style="color: #888;">${t.name}</small>` : ''}
+                                </div>
+                                <div style="text-align: right; color: #4ade80; font-weight: 500;">
+                                    ${formatTokenAmount(t.amount)}
+                                </div>
+                            </div>
                         `).join('')}
                     </div>
                     ` : ''}
                     <div class="mt-3">
-                        <small class="text-muted">Recent Transfers:</small>
-                        <div class="tx-list" style="max-height: 250px;">
-                            ${tokenTransfers.transfers.slice(0, 15).map(tx => `
-                                <div class="tx-item">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="badge ${tx.direction === 'in' ? 'bg-success' : 'bg-danger'}" style="font-size: 0.7rem;">
-                                            ${tx.direction === 'in' ? 'IN' : 'OUT'}
-                                        </span>
-                                        <span style="color: #667eea; font-weight: 500;">
-                                            ${tx.value > 1000000 ? (tx.value/1000000).toFixed(4) + 'M' : tx.value > 1000 ? (tx.value/1000).toFixed(4) + 'K' : tx.value.toFixed(4)} ${tx.token_symbol}
-                                        </span>
+                        <strong class="text-muted">Recent Transfers:</strong>
+                        <div class="tx-list" style="max-height: 300px; margin-top: 10px;">
+                            ${tokenTransfers.transfers.slice(0, 20).map(tx => `
+                                <div class="tx-item" style="border-left: 3px solid ${tx.direction === 'in' ? '#4ade80' : '#f87171'};">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <span class="badge ${tx.direction === 'in' ? 'bg-success' : 'bg-danger'}" style="font-size: 0.65rem; margin-right: 6px;">
+                                                ${tx.direction === 'in' ? 'IN' : 'OUT'}
+                                            </span>
+                                            <strong style="color: #667eea; font-size: 0.95rem;">
+                                                ${formatTokenAmount(tx.value)} ${tx.token_symbol}
+                                            </strong>
+                                        </div>
+                                        ${tx.timestamp ? `<small style="color: #666;">${tx.timestamp}</small>` : ''}
+                                    </div>
+                                    <div style="margin-top: 4px;">
+                                        <div style="color: #9d9dff; font-weight: 500; font-size: 0.85rem;">
+                                            ${tx.token_name || 'Unknown Token'}
+                                        </div>
                                     </div>
                                     <div class="d-flex justify-content-between mt-1" style="font-size: 0.75rem;">
-                                        <span class="text-muted">${tx.token_name}</span>
-                                        <span class="hash" style="cursor: pointer;" onclick="copyToClipboard('${tx.hash}')" title="Click to copy TX hash">
-                                            ${tx.hash ? tx.hash.slice(0, 8) + '...' : ''}
+                                        <span style="color: #666;">
+                                            ${tx.direction === 'in' ? 'From: ' : 'To: '}
+                                            <span style="font-family: monospace; color: #888;">
+                                                ${tx.direction === 'in' ? shortenAddress(tx.from) : shortenAddress(tx.to)}
+                                            </span>
+                                        </span>
+                                        <span class="hash" style="cursor: pointer; color: #667eea;" onclick="copyToClipboard('${tx.hash}')" title="Click to copy TX hash">
+                                            ${tx.hash ? tx.hash.slice(0, 10) + '...' : ''}
                                         </span>
                                     </div>
-                                    <div style="font-size: 0.7rem; color: #666;">
-                                        ${tx.direction === 'in' ? 'From: ' : 'To: '}
-                                        <span style="font-family: monospace; color: #888;">
-                                            ${tx.direction === 'in' ? shortenAddress(tx.from) : shortenAddress(tx.to)}
-                                        </span>
+                                    ${tx.contract_address ? `
+                                    <div style="font-size: 0.7rem; color: #555; margin-top: 2px;">
+                                        Contract: <span style="font-family: monospace;">${shortenAddress(tx.contract_address)}</span>
                                     </div>
+                                    ` : ''}
                                 </div>
                             `).join('')}
                         </div>
@@ -1634,6 +1664,23 @@ function getNodeColor(d) {
     if (d.is_central) return '#0d6efd';
     if (graphState.expandedNodes.has(d.id.toLowerCase())) return '#17a2b8';
     return '#6c757d';
+}
+
+function formatTokenAmount(amount) {
+    if (amount === 0 || amount === undefined || amount === null) return '0';
+    if (Math.abs(amount) >= 1000000000) {
+        return (amount / 1000000000).toFixed(2) + 'B';
+    } else if (Math.abs(amount) >= 1000000) {
+        return (amount / 1000000).toFixed(2) + 'M';
+    } else if (Math.abs(amount) >= 1000) {
+        return (amount / 1000).toFixed(2) + 'K';
+    } else if (Math.abs(amount) >= 1) {
+        return amount.toFixed(4);
+    } else if (Math.abs(amount) >= 0.0001) {
+        return amount.toFixed(6);
+    } else {
+        return amount.toExponential(2);
+    }
 }
 
 function shortenAddress(address) {

@@ -1122,28 +1122,45 @@ def api_token_transfers(chain, address):
 
     try:
         client = BlockchainClient(chain)
+        # get_token_transfers already returns formatted data with token_name, token_symbol, etc.
         token_transfers = client.get_token_transfers(address, limit=100)
 
-        # Format transfers for display
+        # Use the already formatted data from the service
         formatted_transfers = []
         for tx in token_transfers[:50]:  # Limit to 50 for modal
+            # Convert timestamp to readable format
+            timestamp = tx.get('timestamp', 0)
+            if timestamp:
+                from datetime import datetime
+                try:
+                    date_str = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M')
+                except:
+                    date_str = ''
+            else:
+                date_str = ''
+
             formatted_transfers.append({
                 'hash': tx.get('hash', ''),
                 'from': tx.get('from', ''),
                 'to': tx.get('to', ''),
-                'value': float(tx.get('value', 0)) / (10 ** int(tx.get('tokenDecimal', 18))),
-                'token_name': tx.get('tokenName', 'Unknown'),
-                'token_symbol': tx.get('tokenSymbol', '???'),
-                'contract_address': tx.get('contractAddress', ''),
-                'timestamp': tx.get('timeStamp', ''),
-                'direction': 'out' if tx.get('from', '').lower() == address.lower() else 'in'
+                'value': tx.get('value', 0),  # Already formatted by the service
+                'token_name': tx.get('token_name', 'Unknown Token'),
+                'token_symbol': tx.get('token_symbol', '???'),
+                'contract_address': tx.get('contract_address', ''),
+                'timestamp': date_str,
+                'direction': tx.get('direction', 'out')
             })
 
-        # Summary stats
+        # Summary stats - group by token
         tokens_sent = {}
         tokens_received = {}
+        token_names = {}  # Store token names for display
+
         for tx in formatted_transfers:
             symbol = tx['token_symbol']
+            name = tx['token_name']
+            token_names[symbol] = name
+
             if tx['direction'] == 'out':
                 tokens_sent[symbol] = tokens_sent.get(symbol, 0) + tx['value']
             else:
@@ -1152,9 +1169,10 @@ def api_token_transfers(chain, address):
         return jsonify({
             'transfers': formatted_transfers,
             'total_transfers': len(token_transfers),
-            'tokens_sent': [{'symbol': k, 'amount': v} for k, v in sorted(tokens_sent.items(), key=lambda x: -x[1])],
-            'tokens_received': [{'symbol': k, 'amount': v} for k, v in sorted(tokens_received.items(), key=lambda x: -x[1])],
-            'unique_tokens': len(set(tx['token_symbol'] for tx in formatted_transfers))
+            'tokens_sent': [{'symbol': k, 'name': token_names.get(k, ''), 'amount': v} for k, v in sorted(tokens_sent.items(), key=lambda x: -x[1])],
+            'tokens_received': [{'symbol': k, 'name': token_names.get(k, ''), 'amount': v} for k, v in sorted(tokens_received.items(), key=lambda x: -x[1])],
+            'unique_tokens': len(set(tx['token_symbol'] for tx in formatted_transfers)),
+            'token_names': token_names
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
