@@ -1,0 +1,197 @@
+/* Crypto Explorer Custom Styles */
+
+/* General */
+body {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* Cards */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+/* Address display */
+.address-full {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9rem;
+    word-break: break-all;
+}
+
+/* Stat cards */
+.stat-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.stat-card h4 {
+    margin-bottom: 0;
+    color: #212529;
+}
+
+/* Graph container */
+#graph-container {
+    min-height: 500px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+}
+
+#graph-container svg {
+    display: block;
+}
+
+/* Tables */
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Badges */
+.badge {
+    font-weight: 500;
+}
+
+/* Footer */
+.footer {
+    margin-top: auto;
+}
+
+/* Search page */
+.display-4 {
+    font-weight: 300;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .display-4 {
+        font-size: 2rem;
+    }
+
+    #graph-container {
+        min-height: 350px;
+    }
+
+    .stat-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Animation for loading */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Graph tooltip (set by JS but base styles here) */
+.graph-tooltip {
+    pointer-events: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* List group items */
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+/* Input focus states */
+.form-control:focus,
+.form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Button hover effects */
+.btn-primary {
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+}
+
+/* Copy button */
+button[onclick="copyAddress()"] {
+    transition: all 0.2s ease;
+}
+
+button[onclick="copyAddress()"]:hover {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+/* Token badge colors */
+.token-badge {
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+/* Transaction status */
+.tx-success {
+    border-left: 3px solid #28a745;
+}
+
+.tx-failed {
+    border-left: 3px solid #dc3545;
+}
+
+/* Network badges */
+.network-ethereum {
+    background-color: #627eea;
+}
+
+.network-bsc {
+    background-color: #f3ba2f;
+    color: #000;
+}
+
+.network-polygon {
+    background-color: #8247e5;
+}
+
+.network-arbitrum {
+    background-color: #28a0f0;
+}

@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}{{ address_info.address|short_address }} - Crypto Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- Address Header -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge bg-primary">{{ address_info.chain_name }}</span>
+                    {% if address_info.is_contract %}
+                    <span class="badge bg-warning">Contract</span>
+                    {% else %}
+                    <span class="badge bg-success">Wallet</span>
+                    {% endif %}
+                </div>
+                <a href="{{ address_info.explorer_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-box-arrow-up-right"></i> View on Explorer
+                </a>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title text-break">
+                    <i class="bi bi-wallet2"></i>
+                    <span class="address-full" id="address">{{ address_info.address }}</span>
+                    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyAddress()">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </h5>
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <small class="text-muted">Balance</small>
+                            <h4>{{ address_info.balance.balance|format_value }} {{ address_info.balance.symbol }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stat-card">
+                            <small class="text-muted">Transactions</small>
+                            <h4>{{ address_info.tx_count }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Link Analysis Graph -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-diagram-3"></i> Link Analysis Graph
+            </div>
+            <div class="card-body p-0">
+                <div id="graph-container"></div>
+                <div id="graph-loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Building relationship graph...</p>
+                </div>
+            </div>
+            <div class="card-footer">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i>
+                    Click on a node to explore that address. Hover for details.
+                </small>
+            </div>
+        </div>
+
+        <!-- Token Balances -->
+        {% if address_info.token_balances %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-coin"></i> Token Balances ({{ address_info.token_balances|length }})
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Token</th>
+                                <th>Balance</th>
+                                <th>Contract</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for token in address_info.token_balances[:20] %}
+                            <tr>
+                                <td>
+                                    <strong>{{ token.token_symbol }}</strong>
+                                    <br><small class="text-muted">{{ token.token_name }}</small>
+                                </td>
+                                <td>{{ token.balance|format_value }}</td>
+                                <td>
+                                    <a href="{{ url_for('address_detail', chain=current_chain, address=token.contract_address) }}"
+                                       class="text-decoration-none">
+                                        {{ token.contract_address|short_address }}
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Transactions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-arrow-left-right"></i> Recent Transactions
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Hash</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Value</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in address_info.transactions[:15] %}
+                            <tr class="{% if tx.is_error %}table-danger{% endif %}">
+                                <td>
+                                    <a href="{{ address_info.explorer_url.replace('/address/', '/tx/').replace(address_info.address, tx.hash) }}"
+                                       target="_blank" class="text-decoration-none">
+                                        {{ tx.hash|short_address }}
+                                    </a>
+                                    {% if tx.method %}
+                                    <br><span class="badge bg-secondary">{{ tx.method }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tx.from.lower() == address_info.address.lower() %}
+                                    <span class="badge bg-danger">OUT</span>
+                                    {% else %}
+                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}"
+                                       class="text-decoration-none">
+                                        {{ tx.from|short_address }}
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tx.to and tx.to.lower() == address_info.address.lower() %}
+                                    <span class="badge bg-success">IN</span>
+                                    {% elif tx.to %}
+                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}"
+                                       class="text-decoration-none">
+                                        {{ tx.to|short_address }}
+                                    </a>
+                                    {% else %}
+                                    <span class="badge bg-info">Contract Create</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ tx.value|format_value }} {{ tx.symbol }}</td>
+                                <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Token Transfers -->
+        {% if address_info.token_transfers %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-arrow-repeat"></i> Recent Token Transfers
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Token</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in address_info.token_transfers[:15] %}
+                            <tr>
+                                <td>
+                                    <strong>{{ tx.token_symbol }}</strong>
+                                    <br><small class="text-muted">{{ tx.token_name|truncate(20) }}</small>
+                                </td>
+                                <td>
+                                    {% if tx.from.lower() == address_info.address.lower() %}
+                                    <span class="badge bg-danger">OUT</span>
+                                    {% else %}
+                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.from) }}"
+                                       class="text-decoration-none">
+                                        {{ tx.from|short_address }}
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tx.to.lower() == address_info.address.lower() %}
+                                    <span class="badge bg-success">IN</span>
+                                    {% else %}
+                                    <a href="{{ url_for('address_detail', chain=current_chain, address=tx.to) }}"
+                                       class="text-decoration-none">
+                                        {{ tx.to|short_address }}
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>{{ tx.value|format_value }}</td>
+                                <td><small>{{ tx.timestamp|timestamp_to_date }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Search Again -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search"></i> Search
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('search') }}" method="GET">
+                    <div class="mb-3">
+                        <select class="form-select" name="chain">
+                            {% for chain in chains %}
+                            <option value="{{ chain.id }}" {% if chain.id == current_chain %}selected{% endif %}>
+                                {{ chain.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="address" placeholder="0x...">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Related Addresses -->
+        {% if related_addresses %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-people"></i> Related Addresses
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for related in related_addresses[:10] %}
+                <li class="list-group-item">
+                    <a href="{{ url_for('address_detail', chain=current_chain, address=related.address) }}"
+                       class="text-decoration-none">
+                        {{ related.short_address }}
+                    </a>
+                    <div class="small text-muted">
+                        {{ related.tx_count }} txs
+                        {% if related.tokens %}
+                        | {{ related.tokens|length }} tokens
+                        {% endif %}
+                    </div>
+                    {% if related.tokens %}
+                    <div class="mt-1">
+                        {% for token in related.tokens[:3] %}
+                        <span class="badge bg-light text-dark">{{ token }}</span>
+                        {% endfor %}
+                        {% if related.tokens|length > 3 %}
+                        <span class="badge bg-light text-dark">+{{ related.tokens|length - 3 }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{{ url_for('static', filename='js/graph.js') }}"></script>
+<script>
+    // Initialize graph
+    const graphUrl = "{{ url_for('api_graph', chain=current_chain, address=address_info.address) }}";
+    const currentChain = "{{ current_chain }}";
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadGraph(graphUrl, currentChain);
+    });
+
+    function copyAddress() {
+        const address = document.getElementById('address').textContent;
+        navigator.clipboard.writeText(address).then(function() {
+            alert('Address copied to clipboard!');
+        });
+    }
+</script>
+{% endblock %}
